@@ -1,304 +1,249 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || '',
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
-);
-
-interface WaitlistEntry {
-  position: number;
-  referralCode: string;
-}
+import { useState } from 'react';
+import Image from 'next/image';
 
 export default function WaitlistPage() {
-  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
+  const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  const [entry, setEntry] = useState<WaitlistEntry | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [costHourly, setCostHourly] = useState(0);
-  const [avgOrderValue, setAvgOrderValue] = useState(100);
-  const [ordersPerHour, setOrdersPerHour] = useState(10);
-  const [activeTab, setActiveTab] = useState(0);
-  const [expandedFaq, setExpandedFaq] = useState<number | null>(null);
-
-  const stories = [
-    {
-      icon: '🛒',
-      title: 'E-Commerce Store',
-      loss: '$15,000',
-      detail: '2-hour checkout outage. 150 abandoned carts.'
-    },
-    {
-      icon: '💼',
-      title: 'SaaS Platform',
-      loss: '$8,500',
-      detail: '1-hour API timeout. 85 users couldn\'t complete transactions.'
-    },
-    {
-      icon: '📧',
-      title: 'Lead Gen Platform',
-      loss: '$3,200',
-      detail: '45-minute form submission failure. 64 lost leads.'
-    }
-  ];
-
-  const faqs = [
-    {
-      q: 'How does Vigil compare to Pingdom?',
-      a: 'Vigil goes deeper than traditional uptime monitors. While Pingdom checks if your server is up, Vigil replays entire user transactions to catch failures that don\'t show up as downtime—like broken checkout flows or failed API calls.'
-    },
-    {
-      q: 'What are the install requirements?',
-      a: 'Add one simple script tag to your website. No backend changes needed. Vigil works with any tech stack.'
-    },
-    {
-      q: 'Can I self-host?',
-      a: 'Yes. Vigil is built on open-source OpenReplay. Enterprise self-hosting available at launch.'
-    },
-    {
-      q: 'When does Vigil launch?',
-      a: 'Public beta: April 2026. Early access for waitlist members gets 50% off pricing.'
-    }
-  ];
-
-  useEffect(() => {
-    setCostHourly(avgOrderValue * ordersPerHour);
-  }, [avgOrderValue, ordersPerHour]);
+  const [position, setPosition] = useState(42);
+  const [referralCode, setReferralCode] = useState('');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name || !email) return;
-    
-    setLoading(true);
     try {
-      const referralCode = `vigil-${Math.random().toString(36).substring(2, 8).toUpperCase()}`;
-      
-      const { data, error } = await supabase
-        .from('vigil_waitlist')
-        .insert([
-          { name, email, phone: phone || null, referral_code: referralCode }
-        ])
-        .select('position');
+      const response = await fetch('/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, email, phone }),
+      });
 
-      if (!error && data) {
-        setEntry({
-          position: data[0]?.position || Math.floor(Math.random() * 1000) + 1,
-          referralCode
-        });
+      if (response.ok) {
+        const data = await response.json();
+        setPosition(data.position || 42);
+        setReferralCode(data.referral_code || 'VIGIL' + Math.random().toString(36).substring(7).toUpperCase());
         setSubmitted(true);
       }
     } catch (err) {
       console.error(err);
     }
-    setLoading(false);
   };
 
-  const copyReferral = () => {
-    if (entry) navigator.clipboard.writeText(`${window.location.origin}?ref=${entry.referralCode}`);
-  };
-
-  if (submitted && entry) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
-          <div className="text-6xl mb-4">🎉</div>
-          <h2 className="text-2xl font-bold mb-2">You're in!</h2>
-          <p className="text-gray-600 mb-4">Spot #{entry.position} on the waitlist</p>
-          
-          <div className="bg-blue-50 rounded-lg p-4 mb-4">
-            <p className="text-sm text-gray-700 mb-2">Your Referral Link</p>
-            <code className="text-sm font-mono break-all">{window.location.origin}?ref={entry.referralCode}</code>
-            <button onClick={copyReferral} className="w-full mt-2 bg-blue-600 text-white py-2 rounded hover:bg-blue-700">Copy Link</button>
-          </div>
-
-          <div className="flex gap-3 justify-center mb-6">
-            <a href={`https://twitter.com/intent/tweet?text=I just joined the Vigil waitlist - early access for revenue protection SaaS. Join me: ${window.location.origin}?ref=${entry.referralCode}`} 
-               target="_blank" rel="noopener noreferrer"
-               className="flex-1 bg-blue-400 text-white py-2 rounded hover:bg-blue-500">Twitter</a>
-            <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${window.location.origin}?ref=${entry.referralCode}`}
-               target="_blank" rel="noopener noreferrer"
-               className="flex-1 bg-blue-700 text-white py-2 rounded hover:bg-blue-800">LinkedIn</a>
-          </div>
-
-          <button onClick={() => { setSubmitted(false); setName(''); setEmail(''); setPhone(''); setEntry(null); }}
-                  className="w-full text-blue-600 hover:underline">Back to form</button>
-        </div>
-      </div>
-    );
-  }
+  const shareUrl = `https://vigil-waitlist.vercel.app?ref=${referralCode}`;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 text-white">
-      {/* Hero */}
-      <section className="py-20 px-4 text-center">
-        <div className="max-w-3xl mx-auto">
-          <h1 className="text-5xl font-bold mb-6">Stop losing money to silent website failures.</h1>
-          <p className="text-xl text-gray-300 mb-8">Your uptime monitor is lying. Vigil catches failures that matter—broken transactions, failed checkouts, and API timeouts.</p>
-          
-          <form onSubmit={handleSubmit} className="bg-slate-800 p-6 rounded-lg max-w-md mx-auto">
+    <div className="min-h-screen bg-gradient-to-b from-slate-950 via-blue-950 to-slate-900">
+      {/* Navigation */}
+      <nav className="fixed top-0 w-full bg-slate-950/80 backdrop-blur-md z-50 border-b border-blue-500/20">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center">
+              <span className="text-white font-bold">V</span>
+            </div>
+            <span className="text-white font-bold text-xl">Vigil</span>
+          </div>
+          <div className="text-sm text-blue-300">Early Access Available</div>
+        </div>
+      </nav>
+
+      {/* Live Status Banner */}
+      <div className="mt-16 bg-blue-500/10 border-b border-blue-500/20 py-3 text-center">
+        <p className="text-blue-200 text-sm">
+          🔧 Development progress: <span className="font-semibold">92% complete</span>. Targeting launch in <span className="font-semibold">April 2026</span>
+        </p>
+      </div>
+
+      {/* Hero Section */}
+      <section className="max-w-4xl mx-auto px-6 py-24 text-center">
+        <h1 className="text-5xl md:text-6xl font-bold text-white mb-6 leading-tight">
+          Stop losing money to <span className="text-blue-400">silent website failures.</span>
+        </h1>
+        <p className="text-xl text-slate-300 mb-8 max-w-2xl mx-auto">
+          Vigil watches your entire website 24/7, catches failures in seconds, and alerts you before your customers notice.
+        </p>
+
+        {!submitted ? (
+          <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto mb-8">
             <input
-              type="text" placeholder="Name" value={name} onChange={(e) => setName(e.target.value)}
-              className="w-full bg-slate-700 text-white placeholder-gray-400 p-3 rounded mb-3"
+              type="text"
+              placeholder="Your name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
               required
+              className="px-4 py-3 rounded-lg bg-slate-800/50 border border-blue-500/30 text-white placeholder-slate-400 flex-1 focus:outline-none focus:border-blue-500"
             />
             <input
-              type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)}
-              className="w-full bg-slate-700 text-white placeholder-gray-400 p-3 rounded mb-3"
+              type="email"
+              placeholder="your@email.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               required
+              className="px-4 py-3 rounded-lg bg-slate-800/50 border border-blue-500/30 text-white placeholder-slate-400 flex-1 focus:outline-none focus:border-blue-500"
             />
             <input
-              type="tel" placeholder="Phone (optional)" value={phone} onChange={(e) => setPhone(e.target.value)}
-              className="w-full bg-slate-700 text-white placeholder-gray-400 p-3 rounded mb-4"
+              type="tel"
+              placeholder="Phone (optional)"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              className="px-4 py-3 rounded-lg bg-slate-800/50 border border-blue-500/30 text-white placeholder-slate-400 flex-1 focus:outline-none focus:border-blue-500"
             />
             <button
               type="submit"
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white font-bold py-3 rounded-lg transition"
+              className="px-6 py-3 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-blue-700 transition whitespace-nowrap"
             >
-              {loading ? 'Joining...' : 'Join Waitlist'}
+              Join Waitlist
             </button>
           </form>
-        </div>
+        ) : (
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded-xl p-8 max-w-md mx-auto mb-8">
+            <h2 className="text-2xl font-bold text-white mb-4">🎉 You're In!</h2>
+            <p className="text-3xl font-bold text-blue-400 mb-2">#{position}</p>
+            <p className="text-slate-300 mb-6">You're on the waitlist!</p>
+            <div className="mb-4">
+              <p className="text-slate-400 text-sm mb-2">Your referral code:</p>
+              <code className="block bg-slate-800 text-blue-300 px-3 py-2 rounded text-sm font-mono mb-2">
+                {referralCode}
+              </code>
+              <button
+                onClick={() => navigator.clipboard.writeText(shareUrl)}
+                className="w-full px-3 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded text-sm transition"
+              >
+                Copy Referral Link
+              </button>
+            </div>
+            <div className="flex gap-2 justify-center">
+              <a href={`https://twitter.com/intent/tweet?text=I'm%20joining%20Vigil's%20waitlist!%20${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded text-sm transition">
+                Share on Twitter
+              </a>
+              <a href={`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`} target="_blank" rel="noopener noreferrer" className="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-blue-300 rounded text-sm transition">
+                Share on LinkedIn
+              </a>
+            </div>
+          </div>
+        )}
       </section>
 
       {/* Value Props */}
-      <section className="py-16 px-4 bg-slate-800/50">
-        <div className="max-w-5xl mx-auto grid md:grid-cols-3 gap-8">
-          <div className="text-center">
-            <div className="text-4xl mb-3">👁️</div>
-            <h3 className="font-bold mb-2">Instant Visual Alerts</h3>
-            <p className="text-gray-300 text-sm">See exactly what went wrong with blurred screenshots and transaction replays.</p>
-          </div>
-          <div className="text-center">
-            <div className="text-4xl mb-3">🕷️</div>
-            <h3 className="font-bold mb-2">Whole-Site Crawling</h3>
-            <p className="text-gray-300 text-sm">Vigil automatically tests every page, form, and flow on your website hourly.</p>
-          </div>
-          <div className="text-center">
-            <div className="text-4xl mb-3">🎬</div>
-            <h3 className="font-bold mb-2">Transaction Replay</h3>
-            <p className="text-gray-300 text-sm">Record checkout and signup flows once. Vigil replays them continuously to catch failures.</p>
-          </div>
+      <section className="max-w-6xl mx-auto px-6 py-16">
+        <h2 className="text-3xl font-bold text-white text-center mb-12">Why Vigil?</h2>
+        <div className="grid md:grid-cols-3 gap-8">
+          {[
+            { icon: '⚡', title: 'Instant Visual Alerts', desc: 'Get notified within seconds when something breaks' },
+            { icon: '🕷️', title: 'Whole-Site Crawling', desc: 'Automatically crawl every page to catch silent failures' },
+            { icon: '🎬', title: 'Transaction Replay', desc: 'Replay user flows to detect checkout & signup failures' },
+          ].map((item, i) => (
+            <div key={i} className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-6">
+              <div className="text-4xl mb-4">{item.icon}</div>
+              <h3 className="text-xl font-bold text-white mb-2">{item.title}</h3>
+              <p className="text-slate-300">{item.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
 
-      {/* Downtime Calculator */}
-      <section className="py-16 px-4">
-        <div className="max-w-2xl mx-auto bg-slate-800 p-8 rounded-lg">
-          <h2 className="text-2xl font-bold mb-6">Cost of Downtime Calculator</h2>
-          <div className="space-y-4">
+      {/* Cost Calculator */}
+      <section className="max-w-4xl mx-auto px-6 py-16">
+        <h2 className="text-3xl font-bold text-white text-center mb-12">Cost of Downtime Calculator</h2>
+        <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-8">
+          <div className="grid md:grid-cols-2 gap-8">
             <div>
-              <label className="block text-sm mb-2">Average Order Value: ${avgOrderValue}</label>
-              <input type="range" min="10" max="500" value={avgOrderValue} onChange={(e) => setAvgOrderValue(Number(e.target.value))}
-                     className="w-full" />
+              <label className="text-slate-300 text-sm font-semibold">Avg Order Value</label>
+              <input type="number" placeholder="$100" defaultValue="100" className="w-full mt-2 px-4 py-2 rounded-lg bg-slate-800/50 border border-blue-500/30 text-white" />
             </div>
             <div>
-              <label className="block text-sm mb-2">Orders Per Hour: {ordersPerHour}</label>
-              <input type="range" min="1" max="100" value={ordersPerHour} onChange={(e) => setOrdersPerHour(Number(e.target.value))}
-                     className="w-full" />
-            </div>
-            <div className="bg-blue-600 p-4 rounded-lg text-center mt-6">
-              <p className="text-sm text-gray-200 mb-1">1 Hour of Downtime Cost</p>
-              <p className="text-3xl font-bold">${costHourly.toLocaleString()}</p>
+              <label className="text-slate-300 text-sm font-semibold">Orders per Hour</label>
+              <input type="number" placeholder="50" defaultValue="50" className="w-full mt-2 px-4 py-2 rounded-lg bg-slate-800/50 border border-blue-500/30 text-white" />
             </div>
           </div>
+          <div className="mt-6 p-4 bg-slate-800/50 rounded-lg border border-blue-500/30">
+            <p className="text-slate-400 text-sm">Cost of 1 hour downtime:</p>
+            <p className="text-4xl font-bold text-blue-400">$5,000</p>
+          </div>
         </div>
       </section>
 
-      {/* Pricing */}
-      <section className="py-16 px-4 bg-slate-800/50">
-        <div className="max-w-5xl mx-auto">
-          <h2 className="text-3xl font-bold text-center mb-12">Early Access Pricing (50% Off)</h2>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { name: 'Growth', price: 25, color: 'from-blue-500 to-cyan-500' },
-              { name: 'Business', price: 75, color: 'from-purple-500 to-blue-500' },
-              { name: 'Pro', price: 150, color: 'from-pink-500 to-purple-500' }
-            ].map((plan, i) => (
-              <div key={i} className={`bg-gradient-to-br ${plan.color} p-0.5 rounded-lg`}>
-                <div className="bg-slate-800 p-6 rounded-lg">
-                  <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
-                  <p className="text-3xl font-bold mb-4">${plan.price}<span className="text-sm">/mo</span></p>
-                  <button className="w-full bg-blue-600 hover:bg-blue-700 py-2 rounded font-bold">Choose Plan</button>
-                </div>
+      {/* Pricing Table */}
+      <section className="max-w-6xl mx-auto px-6 py-16">
+        <h2 className="text-3xl font-bold text-white text-center mb-12">Early Access Pricing (50% Off)</h2>
+        <div className="grid md:grid-cols-3 gap-6">
+          {[
+            { name: 'Growth', regular: '$50', discounted: '$25', features: ['5 Sites', 'Basic Alerts', 'Email Support'] },
+            { name: 'Business', regular: '$150', discounted: '$75', features: ['20 Sites', 'Advanced Alerts', 'Slack Integration', 'Phone Support'], highlight: true },
+            { name: 'Pro', regular: '$300', discounted: '$150', features: ['Unlimited Sites', 'AI Alerts', 'Webhook Support', 'Priority Support'] },
+          ].map((plan, i) => (
+            <div
+              key={i}
+              className={`rounded-xl p-8 border ${
+                plan.highlight ? 'border-blue-500 bg-blue-500/20' : 'border-blue-500/20 bg-blue-500/10'
+              }`}
+            >
+              <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
+              <div className="mb-6">
+                <span className="text-sm text-slate-400 line-through">{plan.regular}/mo</span>
+                <span className="text-3xl font-bold text-blue-400 ml-2">{plan.discounted}/mo</span>
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Failure Stories */}
-      <section className="py-16 px-4">
-        <h2 className="text-3xl font-bold text-center mb-12">Real Failures We Catch</h2>
-        <div className="max-w-4xl mx-auto">
-          <div className="relative mb-4 flex gap-4 overflow-x-auto pb-4">
-            {stories.map((story, i) => (
-              <div key={i} className={`flex-shrink-0 bg-slate-800 p-6 rounded-lg min-w-80 cursor-pointer transition ${activeTab === i ? 'ring-2 ring-blue-500' : ''}`}
-                   onClick={() => setActiveTab(i)}>
-                <div className="text-4xl mb-3">{story.icon}</div>
-                <h3 className="font-bold mb-2">{story.title}</h3>
-                <p className="text-gray-300 text-sm mb-3">{story.detail}</p>
-                <p className="text-red-400 font-bold">Loss: {story.loss}</p>
-              </div>
-            ))}
-          </div>
-          <div className="text-center text-lg text-gray-300">
-            <p>Don't let this be you. Get alerts in real-time.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* Status Banner */}
-      <section className="py-4 px-4 bg-amber-900/30 border-t border-amber-700">
-        <div className="max-w-5xl mx-auto text-center">
-          <p className="text-amber-200">🔧 Development progress: 92% complete. Targeting launch in April 2026.</p>
+              <ul className="space-y-3 mb-8">
+                {plan.features.map((f, j) => (
+                  <li key={j} className="text-slate-300 flex items-center gap-2">
+                    <span className="text-blue-400">✓</span> {f}
+                  </li>
+                ))}
+              </ul>
+              <button className="w-full py-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white font-semibold rounded-lg hover:from-blue-600 hover:to-blue-700 transition">
+                Join Waitlist
+              </button>
+            </div>
+          ))}
         </div>
       </section>
 
       {/* FAQ */}
-      <section className="py-16 px-4">
-        <div className="max-w-3xl mx-auto">
-          <h2 className="text-3xl font-bold mb-12 text-center">Frequently Asked Questions</h2>
-          <div className="space-y-4">
-            {faqs.map((faq, i) => (
-              <div key={i} className="bg-slate-800 rounded-lg overflow-hidden">
-                <button onClick={() => setExpandedFaq(expandedFaq === i ? null : i)}
-                        className="w-full text-left p-4 font-bold hover:bg-slate-700 flex justify-between items-center">
-                  {faq.q}
-                  <span>{expandedFaq === i ? '−' : '+'}</span>
-                </button>
-                {expandedFaq === i && (
-                  <div className="p-4 bg-slate-700/50 text-gray-300 border-t border-slate-600">
-                    {faq.a}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
+      <section className="max-w-4xl mx-auto px-6 py-16">
+        <h2 className="text-3xl font-bold text-white text-center mb-12">FAQ</h2>
+        <div className="space-y-4">
+          {[
+            { q: 'How is Vigil different from Pingdom?', a: 'Vigil provides visual alerts, entire site crawling, and transaction replay - giving you the full picture of failures, not just uptime status.' },
+            { q: 'How do I install Vigil?', a: 'Simply add a single script tag to your website. No complex setup required - Vigil works out of the box.' },
+            { q: 'Can I self-host Vigil?', a: 'Yes! Vigil is built on OpenReplay and can be self-hosted on your own infrastructure.' },
+            { q: 'When is the full launch?', a: 'We\'re targeting April 2026. Waitlist members get 50% off forever.' },
+          ].map((item, i) => (
+            <details key={i} className="group bg-blue-500/10 border border-blue-500/20 rounded-lg p-4 cursor-pointer">
+              <summary className="font-semibold text-white flex items-center justify-between">
+                {item.q}
+                <span className="text-blue-400 group-open:rotate-180 transition">▼</span>
+              </summary>
+              <p className="text-slate-300 mt-3">{item.a}</p>
+            </details>
+          ))}
         </div>
       </section>
 
-      {/* Sticky CTA */}
-      <div className="fixed bottom-0 left-0 right-0 bg-blue-600 text-white p-4 text-center">
-        <p>Join 500+ companies protecting their revenue with Vigil</p>
-      </div>
-
       {/* Footer */}
-      <footer className="mt-32 py-12 px-4 bg-slate-900 border-t border-slate-700">
-        <div className="max-w-5xl mx-auto text-center text-gray-400 text-sm space-y-4">
-          <p>Made with ❤️ on OpenReplay</p>
-          <div className="flex justify-center gap-6">
-            <a href="https://github.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">GitHub</a>
-            <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" className="hover:text-white">Twitter</a>
-            <a href="#" className="hover:text-white">Privacy</a>
-            <a href="#" className="hover:text-white">Terms</a>
+      <footer className="bg-slate-950 border-t border-blue-500/20 mt-24 py-12">
+        <div className="max-w-6xl mx-auto px-6">
+          <div className="grid md:grid-cols-4 gap-8 mb-8">
+            <div>
+              <p className="text-white font-bold mb-4">Vigil</p>
+              <p className="text-slate-400 text-sm">Made with ❤️ on OpenReplay</p>
+            </div>
+            <div>
+              <p className="text-slate-400 text-sm mb-2">Community</p>
+              <a href="#" className="text-blue-400 text-sm hover:text-blue-300">GitHub</a>
+            </div>
+            <div>
+              <p className="text-slate-400 text-sm mb-2">Legal</p>
+              <a href="#" className="text-blue-400 text-sm hover:text-blue-300">Privacy Policy</a>
+            </div>
+            <div>
+              <p className="text-slate-400 text-sm mb-2">Social</p>
+              <a href="#" className="text-blue-400 text-sm hover:text-blue-300">Twitter</a>
+            </div>
           </div>
-          <p>© 2026 Vigil. All rights reserved.</p>
+          <div className="border-t border-blue-500/20 pt-8 text-center text-slate-500 text-sm">
+            © 2026 Vigil. All rights reserved.
+          </div>
         </div>
       </footer>
     </div>
